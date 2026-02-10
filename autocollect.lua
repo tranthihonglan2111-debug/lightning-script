@@ -1,19 +1,30 @@
--- ⚡ LightNing Auto Collect (Fly - Collect - Return)
+-- ⚡ LightNing Auto Collect FIX (Fly + Collect + Respawn Safe)
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local ProximityPromptService = game:GetService("ProximityPromptService")
 
 local player = Players.LocalPlayer
-local char = player.Character or player.CharacterAdded:Wait()
-local hrp = char:WaitForChild("HumanoidRootPart")
 
 local ENABLED = false
-local RANGE = 200     -- phạm vi quét
-local SPEED = 90      -- tốc độ bay (stud/s)
+local RANGE = 200
+local SPEED = 90
 
-local startCFrame = nil
-local currentTween = nil
+local char, hrp
+local startCFrame
+local currentTween
+
+-- ===== Character Reload =====
+local function loadChar()
+	char = player.Character or player.CharacterAdded:Wait()
+	hrp = char:WaitForChild("HumanoidRootPart")
+end
+loadChar()
+
+player.CharacterAdded:Connect(function()
+	task.wait(0.5)
+	loadChar()
+end)
 
 -- ===== UI =====
 local gui = Instance.new("ScreenGui")
@@ -32,9 +43,11 @@ btn.Draggable = true
 
 -- ===== Helpers =====
 local function tweenTo(cf)
+	if not hrp then return end
 	if currentTween then currentTween:Cancel() end
+
 	local dist = (hrp.Position - cf.Position).Magnitude
-	local time = math.clamp(dist / SPEED, 0.15, 1.5)
+	local time = math.clamp(dist / SPEED, 0.2, 1.5)
 
 	currentTween = TweenService:Create(
 		hrp,
@@ -45,14 +58,10 @@ local function tweenTo(cf)
 	currentTween.Completed:Wait()
 end
 
-local function isCollectible(part)
-	return part:IsA("BasePart") and part:FindFirstChildWhichIsA("ProximityPrompt", true)
-end
-
 local function getNearestCollectible()
 	local nearest, dist
 	for _, obj in ipairs(workspace:GetDescendants()) do
-		if isCollectible(obj) then
+		if obj:IsA("BasePart") and obj:FindFirstChildWhichIsA("ProximityPrompt", true) then
 			local d = (obj.Position - hrp.Position).Magnitude
 			if d <= RANGE and (not dist or d < dist) then
 				nearest, dist = obj, d
@@ -62,10 +71,9 @@ local function getNearestCollectible()
 	return nearest
 end
 
-local function collectFrom(part)
+local function collect(part)
 	local prompt = part:FindFirstChildWhichIsA("ProximityPrompt", true)
 	if prompt then
-		-- kích hoạt nhặt
 		pcall(function()
 			ProximityPromptService:TriggerPrompt(prompt)
 		end)
@@ -83,25 +91,27 @@ btn.MouseButton1Click:Connect(function()
 		btn.Text = "LightNing⚡ OFF"
 		btn.BackgroundColor3 = Color3.fromRGB(220, 60, 60)
 		if startCFrame then
-			tweenTo(startCFrame) -- bay về vị trí cũ
+			tweenTo(startCFrame)
 		end
 	end
 end)
 
 -- ===== Main Loop =====
 task.spawn(function()
-	while task.wait(0.3) do
-		if not ENABLED or not char.Parent then continue end
+	while task.wait(0.4) do
+		if not ENABLED or not hrp then continue end
 
 		local target = getNearestCollectible()
 		if target then
-			-- bay tới
 			tweenTo(target.CFrame + Vector3.new(0, 1.5, 0))
-			task.wait(0.1)
-			-- tự nhặt
-			collectFrom(target)
+
+			-- ⏸️ đứng lại cho chắc
+			task.wait(0.6)
+
+			collect(target)
+
 			task.wait(0.2)
-			-- bay về chỗ bật
+
 			if startCFrame then
 				tweenTo(startCFrame)
 			end
