@@ -1,7 +1,11 @@
-print("Lightning script loaded!")
+local player = game.Players.LocalPlayer
+local char = player.Character or player.CharacterAdded:Wait()
+local humanoid = char:WaitForChild("Humanoid")
+
+humanoid.WalkSpeed = 50
 
 game.StarterGui:SetCore("SendNotification", {
-    Title = "⚡ LightNing";
-    Text = "Script đã chạy thành công!";
+    Title = "⚡ Lightning";
+    Text = "Speed ON (50)";
     Duration = 5;
 })
